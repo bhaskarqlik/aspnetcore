@@ -934,6 +934,9 @@ internal sealed partial class Http2Connection : IHttp2StreamLifetimeHandler, IHt
             {
                 foreach (var stream in _streams.Values)
                 {
+#pragma warning disable CA1305
+                    Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._context.ConnectionId} StreamId={stream.StreamId} ProcessSettingsFrameAsync ==> InitialWindowSize={_clientSettings.InitialWindowSize}, previousInitialWindowSize={previousInitialWindowSize}, windowSizeDifference={windowSizeDifference}");
+#pragma warning restore CA1305
                     if (!stream.TryUpdateOutputWindow(windowSizeDifference))
                     {
                         // This means that this caused a stream window to become larger than int.MaxValue.

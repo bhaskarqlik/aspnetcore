@@ -50,6 +50,8 @@ internal sealed class Http2OutputProducer : IHttpOutputProducer, IHttpOutputAbor
     private bool _waitingForWindowUpdates;
     private Http2ErrorCode? _resetErrorCode;
 
+    public bool WasNegative;
+
     public Http2OutputProducer(Http2Stream stream, Http2StreamContext context)
     {
         _stream = stream;
@@ -170,6 +172,12 @@ internal sealed class Http2OutputProducer : IHttpOutputProducer, IHttpOutputAbor
         lock (_dataWriterLock)
         {
             _streamWindow -= bytes;
+            if (_streamWindow < 0)
+            {
+#pragma warning disable CA1305
+                Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._stream.ConnectionContext.ConnectionId} StreamId={this._stream.StreamId} ConsumeStreamWindow ==> from {_streamWindow} subtract {bytes}");
+#pragma warning restore CA1305
+            }
         }
     }
 
@@ -332,7 +340,6 @@ internal sealed class Http2OutputProducer : IHttpOutputProducer, IHttpOutputAbor
         {
             _waitingForWindowUpdates = false;
         }
-
         Schedule();
     }
 
@@ -723,6 +730,13 @@ internal sealed class Http2OutputProducer : IHttpOutputProducer, IHttpOutputAbor
         bool UpdateStreamWindow(long bytes)
         {
             var wasDepleted = _streamWindow <= 0;
+#pragma warning disable CA1305
+            if (_streamWindow < 0 && _unconsumedBytes > 0)
+            {
+                // if _streamingWindow was negative and we still have some data to write
+                Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._stream.ConnectionContext.ConnectionId} StreamId={this._stream.StreamId} UpdateStreamWindow ==> from {_streamWindow} add {bytes} bytes for unconsumed bytes {_unconsumedBytes}");
+            }
+#pragma warning restore CA1305
             _streamWindow += bytes;
             return wasDepleted && _streamWindow > 0 && _unconsumedBytes > 0;
         }

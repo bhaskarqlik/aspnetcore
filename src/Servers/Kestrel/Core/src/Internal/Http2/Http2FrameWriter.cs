@@ -117,7 +117,7 @@ internal sealed class Http2FrameWriter
         // This is bounded by the maximum number of concurrent Http2Streams per Http2Connection.
         // This isn't the same as SETTINGS_MAX_CONCURRENT_STREAMS, but typically double (with a floor of 100)
         // which is the max number of Http2Streams that can end up in the Http2Connection._streams dictionary.
-        // 
+        //
         // Setting a lower limit of SETTINGS_MAX_CONCURRENT_STREAMS might be sufficient because a stream shouldn't
         // be rescheduling itself after being completed or canceled, but we're going with the more conservative limit
         // in case there's some logic scheduling completed or canceled streams unnecessarily.
@@ -165,9 +165,30 @@ internal sealed class Http2FrameWriter
 
                     // Check the stream window
                     var actual = producer.CheckStreamWindow(buffer.Length);
+#pragma warning disable CA1305
+                    if (actual < 0)
+                    {
 
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._connectionId} StreamId={stream.StreamId} resetting to 0");
+                        actual = 0;
+                        producer.WasNegative = true;
+                    }
                     // Now check the connection window
                     actual = CheckConnectionWindow(actual);
+
+                    if (actual < 0)
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._connectionId} StreamId={stream.StreamId} resetting to 0");
+                        actual = 0;
+                        producer.WasNegative = true;
+                    }
+
+                    if (actual > 0 && producer.WasNegative)
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("dd-MM-yyyy HH:mm:ss.FFF")}: AspNetKestrel {this._connectionId} StreamId={stream.StreamId} now actual is {actual}");
+                        producer.WasNegative = false;
+                    }
+#pragma warning restore CA1305
 
                     // Write what we can
                     if (actual < buffer.Length)
